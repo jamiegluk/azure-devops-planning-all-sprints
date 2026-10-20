@@ -24,6 +24,8 @@
     error: null,
     nativeSig: '',
     fmt: null,
+    refreshing: new Set(),     // iteration ids with a per-card refresh in flight
+    refreshErrors: new Map(),  // iteration id -> last refresh error
   };
 
   // ---------- context ----------
@@ -275,10 +277,70 @@
     return span;
   }
 
+  function ensureStyles() {
+    if (document.getElementById(ROOT_ID + '-style')) return;
+    const style = el('style');
+    style.id = ROOT_ID + '-style';
+    style.textContent = `
+      #${ROOT_ID} .ams-refresh { padding: 0 4px; margin-left: 4px; height: 20px; min-width: 0; align-self: center; }
+      #${ROOT_ID} .ams-refresh .fabric-icon { font-size: 12px; }
+      #${ROOT_ID} .ams-refresh.ams-busy { pointer-events: none; opacity: .6; }
+      #${ROOT_ID} .ams-refresh.ams-busy .fabric-icon { animation: ams-spin 1s linear infinite; }
+      #${ROOT_ID} .ams-refresh.ams-failed .fabric-icon { color: var(--status-error-foreground, #cd4a45); }
+      @keyframes ams-spin { to { transform: rotate(360deg); } }`;
+    document.head.append(style);
+  }
+
+  function buildRefreshButton(c, list, meta, it, tr) {
+    const busy = state.refreshing.has(it.id);
+    const failed = state.refreshErrors.get(it.id);
+    const btn = el('button', 'ams-refresh bolt-button bolt-icon-button enabled subtle icon-only bolt-focus-treatment'
+      + (busy ? ' ams-busy' : '') + (failed ? ' ams-failed' : ''));
+    btn.type = 'button';
+    btn.title = failed ? `Refresh failed: ${failed} – click to retry` : `Refresh ${it.name}`;
+    btn.setAttribute('aria-label', btn.title);
+    const icon = el('span', 'fluent-icons-enabled');
+    icon.append(el('span', 'flex-noshrink fabric-icon ms-Icon--Refresh'));
+    btn.append(icon);
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      refreshOne(c, list, meta, it, tr);
+    });
+    return btn;
+  }
+
+  async function refreshOne(c, list, meta, it, tr) {
+    if (state.refreshing.has(it.id)) return;
+    const key = state.key;
+    state.refreshing.add(it.id);
+    state.refreshErrors.delete(it.id);
+    let row = swapCard(c, list, meta, it, tr);
+    try {
+      const fresh = await loadStats(c, meta, [it]);
+      if (!state.stats) state.stats = new Map();
+      state.stats.set(it.id, fresh.get(it.id));
+    } catch (e) {
+      state.refreshErrors.set(it.id, e.message);
+    }
+    state.refreshing.delete(it.id);
+    if (state.key !== key) return;
+    // The list may have been re-rendered meanwhile; find the current row for this sprint.
+    row = (row.isConnected ? row : document.querySelector(`#${ROOT_ID} tr[data-iteration-id="${it.id}"]`));
+    if (row) swapCard(c, list, meta, it, row);
+  }
+
+  function swapCard(c, list, meta, it, tr) {
+    const next = buildCard(c, list, meta, it, state.stats && state.stats.get(it.id));
+    tr.replaceWith(next);
+    return next;
+  }
+
   function buildCard(c, list, meta, it, s) {
     const fmtNum = n => String(Math.round(n * 100) / 100);
     const tr = el('tr', 'bolt-list-row');
     tr.setAttribute('role', 'listitem');
+    tr.dataset.iterationId = it.id;
     const td = el('td', 'bolt-list-cell');
     const content = el('div', 'bolt-list-cell-content flex-row');
     const card = el('div', 'planning-sprint-card margin-top-8 flex-grow bolt-card flex-column depth-8 bolt-card-white');
@@ -291,7 +353,7 @@
     a.href = iterationHref(c, it);
     nameWrap.append(a);
     const dates = `${state.fmt(new Date(it.attributes.startDate))} - ${state.fmt(new Date(it.attributes.finishDate))}`;
-    r1.append(nameWrap, el('span', 'flex-self-end', dates));
+    r1.append(nameWrap, el('span', 'flex-self-end', dates), buildRefreshButton(c, list, meta, it, tr));
 
     const r2 = el('div', 'flex-row secondary-text');
     r2.append(
@@ -339,6 +401,7 @@
     if (!extras.length) return;
 
     if (state.expanded) {
+      ensureStyles();
       const table = el('table', 'flex-card full-width bolt-list body-m relative');
       table.setAttribute('role', 'list');
       const tbody = el('tbody', 'relative');
@@ -394,7 +457,10 @@
     if (!c) { existing && existing.remove(); return; }
 
     if (state.key !== c.key) {
-      Object.assign(state, { key: c.key, expanded: false, stats: null, error: null, nativeSig: '', fmt: null });
+      Object.assign(state, {
+        key: c.key, expanded: false, stats: null, error: null, nativeSig: '', fmt: null,
+        refreshing: new Set(), refreshErrors: new Map(),
+      });
       state.meta = loadMeta(c);
       existing && existing.remove();
     }
