@@ -1,0 +1,20 @@
+# HTML examples (contain sensitive Azure DevOps data)
+html-examples/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local History (VS Code extension)
+.history/
+
+# Claude Code local settings
+.claude/
