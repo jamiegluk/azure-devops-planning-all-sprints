@@ -1,12 +1,18 @@
 // ==UserScript==
-// @name         Azure DevOps – All sprints in Planning pane
-// @namespace    https://biotronics3d.com/userscripts
-// @version      1.0.0
-// @description  Adds a "Show more" button to the Sprints › Planning pane that lists every remaining team sprint beyond the built-in limit.
-// @match        https://dev.azure.com/*
-// @match        https://*.visualstudio.com/*
-// @run-at       document-idle
-// @grant        none
+// @name        Azure DevOps Planning All Sprints
+// @namespace   https://github.com/jamiegluk
+// @version     1.0.0
+// @description Adds a "Show more" button to the Sprints › Planning pane in Azure DevOps that lists every remaining team sprint beyond the built-in limit.
+// @author      Jamie Lievesley
+// @license     MIT
+// @match       https://dev.azure.com/*
+// @match       https://*.visualstudio.com/*
+// @run-at      document-idle
+// @grant       none
+// @homepageURL https://github.com/jamiegluk/azure-devops-planning-all-sprints
+// @supportURL  https://github.com/jamiegluk/azure-devops-planning-all-sprints/issues
+// @updateURL   https://raw.githubusercontent.com/jamiegluk/azure-devops-planning-all-sprints/master/azure-devops-planning-all-sprints.user.js
+// @downloadURL https://raw.githubusercontent.com/jamiegluk/azure-devops-planning-all-sprints/master/azure-devops-planning-all-sprints.user.js
 // ==/UserScript==
 
 (() => {
